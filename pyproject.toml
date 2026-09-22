@@ -1,0 +1,23 @@
+[project]
+name = "ocr-platform"
+version = "1.0.0"
+description = "OCR Evaluation and PDF Viewing Platform with FastAPI and Apple Vision/Tesseract"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "python-multipart>=0.0.9",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "transformers>=4.41.2,<4.45.0",
+    "timm>=0.9.0",
+    "einops>=0.8.0",
+    "pillow>=10.0.0",
+    "accelerate>=0.28.0",
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.uv]
+package = false
