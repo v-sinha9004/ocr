@@ -2,6 +2,7 @@ from .apple_vision import run_apple_vision_ocr
 from .tesseract import run_tesseract_ocr
 from .florence_2 import run_florence_ocr
 from .openai_vision import run_openai_ocr
+from .ollama import run_ollama_ocr, OLLAMA_VISION_MODELS
 
 ENGINES = [
     {
@@ -38,6 +39,15 @@ ENGINES = [
         ],
         "defaultModel": "gpt-5.4-mini",
     },
+    {
+        "id": "ollama",
+        "name": "Ollama Vision",
+        "badge": "Local / Multimodal LLM",
+        "description": "Local vision-language text recognition running via Ollama (qwen3-vl:8b).",
+        "available": True,
+        "models": OLLAMA_VISION_MODELS,
+        "defaultModel": "qwen3-vl:8b",
+    },
 ]
 
 
@@ -53,6 +63,8 @@ def execute_ocr(engine_id: str, image_path: str, options: dict = None) -> dict:
         return run_florence_ocr(image_path, options)
     elif engine_id == "openai":
         return run_openai_ocr(image_path, options)
+    elif engine_id == "ollama":
+        return run_ollama_ocr(image_path, options)
     else:
         raise ValueError(f"Unknown or unsupported OCR engine: {engine_id}")
 

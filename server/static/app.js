@@ -14,6 +14,7 @@ const state = {
   engines: [],
   selectedEngine: 'apple_vision',
   selectedOpenaiModel: 'gpt-5.4-mini',
+  selectedOllamaModel: 'qwen3-vl:8b',
   isRunningOCR: false,
   ocrResult: null,
   activeTab: 'text',
@@ -55,6 +56,8 @@ const elements = {
   engineDescText: document.getElementById('engineDescText'),
   openaiModelContainer: document.getElementById('openaiModelContainer'),
   openaiModelSelect: document.getElementById('openaiModelSelect'),
+  ollamaModelContainer: document.getElementById('ollamaModelContainer'),
+  ollamaModelSelect: document.getElementById('ollamaModelSelect'),
   runOcrBtn: document.getElementById('runOcrBtn'),
   runIcon: document.getElementById('runIcon'),
   runSpinner: document.getElementById('runSpinner'),
@@ -117,6 +120,22 @@ function renderEngineOptions() {
     elements.engineSelect.appendChild(opt);
   });
   elements.engineSelect.value = state.selectedEngine;
+
+  // Populate Ollama models if returned by registry
+  const ollamaEng = state.engines.find((e) => e.id === 'ollama');
+  if (ollamaEng && ollamaEng.models && elements.ollamaModelSelect) {
+    elements.ollamaModelSelect.innerHTML = '';
+    ollamaEng.models.forEach((m) => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      elements.ollamaModelSelect.appendChild(opt);
+    });
+    if (ollamaEng.defaultModel) {
+      elements.ollamaModelSelect.value = state.selectedOllamaModel || ollamaEng.defaultModel;
+    }
+  }
+
   updateEngineDescription();
   updateEngineControls();
 }
@@ -134,6 +153,13 @@ function updateEngineControls() {
       elements.openaiModelContainer.classList.remove('hidden');
     } else {
       elements.openaiModelContainer.classList.add('hidden');
+    }
+  }
+  if (elements.ollamaModelContainer) {
+    if (state.selectedEngine === 'ollama') {
+      elements.ollamaModelContainer.classList.remove('hidden');
+    } else {
+      elements.ollamaModelContainer.classList.add('hidden');
     }
   }
 }
@@ -214,6 +240,14 @@ function setupEventListeners() {
   if (elements.openaiModelSelect) {
     elements.openaiModelSelect.addEventListener('change', (e) => {
       state.selectedOpenaiModel = e.target.value;
+      updateOCRButtonState();
+    });
+  }
+
+  // Ollama Model Select
+  if (elements.ollamaModelSelect) {
+    elements.ollamaModelSelect.addEventListener('change', (e) => {
+      state.selectedOllamaModel = e.target.value;
       updateOCRButtonState();
     });
   }
@@ -439,6 +473,8 @@ function updateOCRButtonState() {
     };
     const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
     engName = `OpenAI (${modelLabel})`;
+  } else if (state.selectedEngine === 'ollama') {
+    engName = `Ollama (${state.selectedOllamaModel})`;
   }
 
   if (state.isRunningOCR) {
@@ -490,6 +526,8 @@ async function runOCR() {
     const options = {};
     if (state.selectedEngine === 'openai') {
       options.model = state.selectedOpenaiModel;
+    } else if (state.selectedEngine === 'ollama') {
+      options.model = state.selectedOllamaModel;
     }
     formData.append('options', JSON.stringify(options));
 

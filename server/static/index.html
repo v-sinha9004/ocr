@@ -163,6 +163,7 @@
               <option value="tesseract">Tesseract OCR — v5.5.1 Local</option>
               <option value="florence_2">Microsoft Florence-2 — VLM / Apple MPS GPU</option>
               <option value="openai">OpenAI Vision — Cloud Multimodal LLM</option>
+              <option value="ollama">Ollama Vision — Local Multimodal LLM</option>
             </select>
           </div>
           <p id="engineDesc" class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
@@ -190,6 +191,25 @@
           </div>
           <p class="text-[11px] text-slate-400">
             Selected model will be invoked with the page image via OpenAI's multimodal vision API.
+          </p>
+        </div>
+
+        <!-- Ollama Model Selection (Dynamic: only when Ollama engine is selected) -->
+        <div id="ollamaModelContainer" class="p-3 rounded-xl bg-slate-950/60 border border-emerald-500/20 space-y-1.5 hidden transition-all">
+          <div class="flex items-center justify-between">
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+              Ollama Vision Model
+            </label>
+            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Local VLM</span>
+          </div>
+          <div class="relative">
+            <select id="ollamaModelSelect" class="select-input">
+              <option value="qwen3-vl:8b" selected>qwen3-vl:8b (Local VLM — Recommended)</option>
+              <option value="llama3.2-vision:11b">llama3.2-vision:11b</option>
+            </select>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Selected model will be invoked with the page image via Ollama's local vision API (:11434).
           </p>
         </div>
 
