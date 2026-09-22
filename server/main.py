@@ -20,7 +20,10 @@ from .services.pdf_service import (
     process_pdf,
 )
 
+import dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+dotenv.load_dotenv(BASE_DIR / ".env")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 DATA_DIR = BASE_DIR / "data"
 TMP_DIR = DATA_DIR / "tmp"

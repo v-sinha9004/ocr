@@ -8,10 +8,11 @@ Built with **FastAPI** and a self-contained, responsive single-page web interfac
 
 ## ⚡ Highlights
 
-- **Triple OCR Engine Support**:
+- **Quad OCR Engine Support**:
   - **Apple Vision OCR**: Hardware-accelerated native text recognition utilizing Apple Silicon's Neural Engine via a custom Swift binary. Provides bounding box coordinates, confidence scores, and sub-second inference.
   - **Tesseract OCR (v5.5.1)**: Local standard open-source OCR engine running via Homebrew with configurable page segmentation (PSM) and language models.
   - **Microsoft Florence-2**: Advanced 230M-parameter vision-language foundation model running locally on Apple Silicon GPU (`mps`) via PyTorch. Supports grounded OCR with normalized bounding box coordinates and scene text parsing.
+  - **OpenAI Vision**: Cloud multimodal LLM text recognition powered by OpenAI GPT vision models. Allows choosing models including **GPT-5.4-mini** and **GPT-5-mini** (with `OPENAI_API_KEY` configured in the backend environment).
 - **In-Browser High-Fidelity PDF Viewer**: Client-side rendering powered by `PDF.js` with multi-page thumbnail navigation, smooth zoom (50%–250%), fit reset, and drag-and-drop file upload.
 - **Instant Pre-loaded Sample**: One-click sample financial document loading for immediate testing without needing to find and upload files.
 - **Real-Time Performance Scorecard**: Side-by-side metric tracking of latency (ms), word count, character count, and detected line count.
@@ -30,14 +31,14 @@ Built with **FastAPI** and a self-contained, responsive single-page web interfac
                     │   • Single-Page Modern UI (HTML5 / Vanilla JS / CSS)   │
                     │   • In-Browser PDF.js Canvas Rendering & Export        │
                     │   • Multipart Image & PDF Processing Endpoints         │
-                    └──────────┬──────────────────┬─────────────────┬────────┘
-                               │                  │                 │
-              ┌────────────────┴──────┐    ┌──────┴──────────┐   ┌──┴───────────────┐
-              ▼                       ▼    ▼                 ▼   ▼                  ▼
-      ┌───────────────┐      ┌─────────────────┐   ┌─────────────────┐  ┌─────────────────┐
-      │ Apple Vision  │      │  Tesseract OCR  │   │   Florence-2    │  │ Poppler Utility │
-      │  Swift CLI    │      │  (CLI v5.5.1)   │   │  (PyTorch MPS)  │  │(pdfinfo/pdftoppm│
-      └───────────────┘      └─────────────────┘   └─────────────────┘  └─────────────────┘
+                    └──────┬──────────────┬──────────────┬────────────┬──────┘
+                           │              │              │            │
+            ┌──────────────┴──────┐┌──────┴──────────┐┌──┴──────────┐┌┴───────────────┐
+            ▼                     ▼▼                 ▼▼             ▼▼                 ▼
+    ┌───────────────┐     ┌────────────────┐  ┌───────────────┐┌───────────────┐ ┌───────────────┐
+    │ Apple Vision  │     │  Tesseract OCR │  │  Florence-2   ││ OpenAI Vision │ │Poppler Utility│
+    │  Swift CLI    │     │  (CLI v5.5.1)  │  │ (PyTorch MPS) ││ (Cloud API)   │ │(pdfinfo/pdftoppm│
+    └───────────────┘     └────────────────┘  └───────────────┘└───────────────┘ └───────────────┘
 ```
 
 ---
@@ -61,6 +62,10 @@ Built with **FastAPI** and a self-contained, responsive single-page web interfac
 - **Poppler** (for PDF rendering & inspection utilities):
   ```bash
   brew install poppler
+  ```
+- **OpenAI API Key (Optional, for OpenAI Vision OCR)**:
+  ```bash
+  export OPENAI_API_KEY="your-api-key-here"
   ```
 
 ---

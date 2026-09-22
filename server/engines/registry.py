@@ -1,6 +1,7 @@
 from .apple_vision import run_apple_vision_ocr
 from .tesseract import run_tesseract_ocr
 from .florence_2 import run_florence_ocr
+from .openai_vision import run_openai_ocr
 
 ENGINES = [
     {
@@ -24,6 +25,19 @@ ENGINES = [
         "description": "Vision foundation model running locally on Apple Silicon GPU for grounded OCR & scene text.",
         "available": True,
     },
+    {
+        "id": "openai",
+        "name": "OpenAI Vision",
+        "badge": "Cloud / Multimodal LLM",
+        "description": "Cloud-based multimodal OCR powered by OpenAI GPT vision models.",
+        "available": True,
+        "models": [
+            {"id": "gpt-5.4-mini", "name": "GPT-5.4-mini"},
+            {"id": "gpt-5-mini", "name": "GPT-5-mini"},
+            {"id": "gpt-4o-mini", "name": "GPT-4o-mini (Fallback)"},
+        ],
+        "defaultModel": "gpt-5.4-mini",
+    },
 ]
 
 
@@ -37,6 +51,9 @@ def execute_ocr(engine_id: str, image_path: str, options: dict = None) -> dict:
         return run_tesseract_ocr(image_path, options)
     elif engine_id == "florence_2":
         return run_florence_ocr(image_path, options)
+    elif engine_id == "openai":
+        return run_openai_ocr(image_path, options)
     else:
         raise ValueError(f"Unknown or unsupported OCR engine: {engine_id}")
+
 

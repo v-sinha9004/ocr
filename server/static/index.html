@@ -162,6 +162,7 @@
               <option value="apple_vision">Apple Vision OCR — macOS Native / Neural Engine</option>
               <option value="tesseract">Tesseract OCR — v5.5.1 Local</option>
               <option value="florence_2">Microsoft Florence-2 — VLM / Apple MPS GPU</option>
+              <option value="openai">OpenAI Vision — Cloud Multimodal LLM</option>
             </select>
           </div>
           <p id="engineDesc" class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1.5">
@@ -171,6 +172,27 @@
             <span id="engineDescText">Hardware-accelerated text recognition using Apple Silicon Neural Engine.</span>
           </p>
         </div>
+
+        <!-- OpenAI Model Selection (Dynamic: only when OpenAI engine is selected) -->
+        <div id="openaiModelContainer" class="p-3 rounded-xl bg-slate-950/60 border border-indigo-500/20 space-y-1.5 hidden transition-all">
+          <div class="flex items-center justify-between">
+            <label class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+              OpenAI Model
+            </label>
+            <span class="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">Multimodal</span>
+          </div>
+          <div class="relative">
+            <select id="openaiModelSelect" class="select-input">
+              <option value="gpt-5.4-mini" selected>GPT-5.4-mini (Recommended)</option>
+              <option value="gpt-5-mini">GPT-5-mini</option>
+              <option value="gpt-4o-mini">GPT-4o-mini (Fallback)</option>
+            </select>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Selected model will be invoked with the page image via OpenAI's multimodal vision API.
+          </p>
+        </div>
+
 
         <button id="runOcrBtn" disabled class="btn btn-run w-full flex items-center justify-center gap-2 text-xs font-semibold py-2.5">
           <svg id="runIcon" class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">

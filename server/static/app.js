@@ -13,6 +13,7 @@ const state = {
   zoom: 100,
   engines: [],
   selectedEngine: 'apple_vision',
+  selectedOpenaiModel: 'gpt-5.4-mini',
   isRunningOCR: false,
   ocrResult: null,
   activeTab: 'text',
@@ -52,6 +53,8 @@ const elements = {
   // OCR Panel
   engineSelect: document.getElementById('engineSelect'),
   engineDescText: document.getElementById('engineDescText'),
+  openaiModelContainer: document.getElementById('openaiModelContainer'),
+  openaiModelSelect: document.getElementById('openaiModelSelect'),
   runOcrBtn: document.getElementById('runOcrBtn'),
   runIcon: document.getElementById('runIcon'),
   runSpinner: document.getElementById('runSpinner'),
@@ -115,12 +118,23 @@ function renderEngineOptions() {
   });
   elements.engineSelect.value = state.selectedEngine;
   updateEngineDescription();
+  updateEngineControls();
 }
 
 function updateEngineDescription() {
   const current = state.engines.find((e) => e.id === state.selectedEngine);
   if (current && elements.engineDescText) {
     elements.engineDescText.textContent = current.description || '';
+  }
+}
+
+function updateEngineControls() {
+  if (elements.openaiModelContainer) {
+    if (state.selectedEngine === 'openai') {
+      elements.openaiModelContainer.classList.remove('hidden');
+    } else {
+      elements.openaiModelContainer.classList.add('hidden');
+    }
   }
 }
 
@@ -191,8 +205,18 @@ function setupEventListeners() {
   elements.engineSelect.addEventListener('change', (e) => {
     state.selectedEngine = e.target.value;
     updateEngineDescription();
+    updateEngineControls();
+    updateOCRButtonState();
     clearOCRResults();
   });
+
+  // OpenAI Model Select
+  if (elements.openaiModelSelect) {
+    elements.openaiModelSelect.addEventListener('change', (e) => {
+      state.selectedOpenaiModel = e.target.value;
+      updateOCRButtonState();
+    });
+  }
 
   // Run OCR Button
   elements.runOcrBtn.addEventListener('click', runOCR);
@@ -406,7 +430,16 @@ function updateOCRButtonState() {
   }
 
   const currentEng = state.engines.find((e) => e.id === state.selectedEngine);
-  const engName = currentEng ? currentEng.name : 'OCR';
+  let engName = currentEng ? currentEng.name : 'OCR';
+  if (state.selectedEngine === 'openai') {
+    const modelLabels = {
+      'gpt-5.4-mini': 'GPT-5.4-mini',
+      'gpt-5-mini': 'GPT-5-mini',
+      'gpt-4o-mini': 'GPT-4o-mini',
+    };
+    const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
+    engName = `OpenAI (${modelLabel})`;
+  }
 
   if (state.isRunningOCR) {
     elements.runOcrBtn.disabled = true;
@@ -453,6 +486,12 @@ async function runOCR() {
     formData.append('image', blob, `page_${state.currentPage}.png`);
     formData.append('engineId', state.selectedEngine);
     formData.append('pageNumber', state.currentPage);
+
+    const options = {};
+    if (state.selectedEngine === 'openai') {
+      options.model = state.selectedOpenaiModel;
+    }
+    formData.append('options', JSON.stringify(options));
 
     const response = await fetch('/api/ocr-page-image', {
       method: 'POST',
@@ -552,7 +591,17 @@ function showReadyNotice() {
 
 function showRunningNotice() {
   const currentEng = state.engines.find((e) => e.id === state.selectedEngine);
-  elements.runningNoticeTitle.textContent = `Executing ${currentEng ? currentEng.name : 'OCR'}...`;
+  let title = `Executing ${currentEng ? currentEng.name : 'OCR'}...`;
+  if (state.selectedEngine === 'openai') {
+    const modelLabels = {
+      'gpt-5.4-mini': 'GPT-5.4-mini',
+      'gpt-5-mini': 'GPT-5-mini',
+      'gpt-4o-mini': 'GPT-4o-mini',
+    };
+    const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
+    title = `Executing OpenAI (${modelLabel})...`;
+  }
+  elements.runningNoticeTitle.textContent = title;
   elements.initialStateNotice.classList.add('hidden');
   elements.readyNotice.classList.add('hidden');
   elements.fullTextContainer.classList.add('hidden');
