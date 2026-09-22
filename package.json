@@ -1,0 +1,11 @@
+{
+  "name": "ocr-platform",
+  "version": "1.0.0",
+  "description": "OCR Evaluation and PDF Viewing Platform",
+  "type": "module",
+  "scripts": {
+    "server": "node server/index.js",
+    "client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build"
+  }
+}
