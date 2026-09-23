@@ -13,6 +13,8 @@ dotenv.load_dotenv()
 DEFAULT_OLLAMA_URL = "http://localhost:11434/v1"
 
 MODEL_DISPLAY_NAMES = {
+    "paddleocr-vl:1.6": "PaddleOCR-VL 1.6",
+    "hf.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF:latest": "PaddleOCR-VL 1.6",
     "qwen3-vl:8b": "qwen3-vl:8b",
     "llama3.2-vision:11b": "llama3.2-vision:11b",
     "llama3.2-vision:90b": "llama3.2-vision:90b",
@@ -22,6 +24,7 @@ MODEL_DISPLAY_NAMES = {
 }
 
 OLLAMA_VISION_MODELS: List[Dict[str, str]] = [
+    {"id": "paddleocr-vl:1.6", "name": "PaddleOCR-VL 1.6 (0.9B Local VLM)"},
     {"id": "qwen3-vl:8b", "name": "qwen3-vl:8b (Local VLM)"},
     {"id": "llama3.2-vision:11b", "name": "llama3.2-vision:11b"},
 ]
@@ -66,6 +69,18 @@ def run_ollama_ocr(image_path: str, options: Optional[Dict[str, Any]] = None) ->
 
     start_time = time.perf_counter()
 
+    custom_prompt = options.get("prompt")
+    if custom_prompt:
+        prompt_text = custom_prompt
+    elif "paddleocr" in model.lower():
+        prompt_text = options.get("task", "OCR:")
+    else:
+        prompt_text = (
+            "Perform Optical Character Recognition (OCR) on this document page image. "
+            "Transcribe ALL text accurately, preserving the original reading flow, layout structure, and line breaks. "
+            "Output ONLY the transcribed document text without any commentary, greetings, notes, or markdown code fences."
+        )
+
     try:
         response = client.chat.completions.create(
             model=model,
@@ -75,11 +90,7 @@ def run_ollama_ocr(image_path: str, options: Optional[Dict[str, Any]] = None) ->
                     "content": [
                         {
                             "type": "text",
-                            "text": (
-                                "Perform Optical Character Recognition (OCR) on this document page image. "
-                                "Transcribe ALL text accurately, preserving the original reading flow, layout structure, and line breaks. "
-                                "Output ONLY the transcribed document text without any commentary, greetings, notes, or markdown code fences."
-                            ),
+                            "text": prompt_text,
                         },
                         {
                             "type": "image_url",
@@ -164,5 +175,17 @@ def run_ollama_ocr(image_path: str, options: Optional[Dict[str, Any]] = None) ->
             "totalTokens": total_tokens if total_tokens is not None else ((prompt_tokens or 0) + (completion_tokens or 0)),
         }
 
+    return result
+
+
+def run_paddleocr_ollama(image_path: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    if options is None:
+        options = {}
+    opts = dict(options)
+    if "model" not in opts or not opts["model"]:
+        opts["model"] = "paddleocr-vl:1.6"
+    result = run_ollama_ocr(image_path, opts)
+    result["engine"] = "paddleocr_vl"
+    result["engineName"] = "PaddleOCR-VL 1.6 (Ollama Metal)"
     return result
 

@@ -483,6 +483,8 @@ function updateOCRButtonState() {
     engName = `OpenAI (${modelLabel})`;
   } else if (state.selectedEngine === 'ollama') {
     engName = `Ollama (${state.selectedOllamaModel})`;
+  } else if (state.selectedEngine === 'paddleocr_vl') {
+    engName = `PaddleOCR-VL 1.6`;
   }
 
   if (state.isRunningOCR) {
@@ -536,6 +538,8 @@ async function runOCR() {
       options.model = state.selectedOpenaiModel;
     } else if (state.selectedEngine === 'ollama') {
       options.model = state.selectedOllamaModel;
+    } else if (state.selectedEngine === 'paddleocr_vl') {
+      options.model = 'paddleocr-vl:1.6';
     }
     formData.append('options', JSON.stringify(options));
 

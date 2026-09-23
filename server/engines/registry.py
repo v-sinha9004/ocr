@@ -2,7 +2,7 @@ from .apple_vision import run_apple_vision_ocr
 from .tesseract import run_tesseract_ocr
 from .florence_2 import run_florence_ocr
 from .openai_vision import run_openai_ocr
-from .ollama import run_ollama_ocr, OLLAMA_VISION_MODELS
+from .ollama import run_ollama_ocr, run_paddleocr_ollama, OLLAMA_VISION_MODELS
 
 ENGINES = [
     {
@@ -27,6 +27,17 @@ ENGINES = [
         "available": True,
     },
     {
+        "id": "paddleocr_vl",
+        "name": "PaddleOCR-VL 1.6",
+        "badge": "0.9B VLM / Ollama Metal",
+        "description": "State-of-the-art 0.9B document parsing VLM running locally via Ollama with full Apple Silicon GPU acceleration.",
+        "available": True,
+        "models": [
+            {"id": "paddleocr-vl:1.6", "name": "PaddleOCR-VL 1.6 (GGUF)"},
+        ],
+        "defaultModel": "paddleocr-vl:1.6",
+    },
+    {
         "id": "openai",
         "name": "OpenAI Vision",
         "badge": "Cloud / Multimodal LLM",
@@ -43,10 +54,10 @@ ENGINES = [
         "id": "ollama",
         "name": "Ollama Vision",
         "badge": "Local / Multimodal LLM",
-        "description": "Local vision-language text recognition running via Ollama (qwen3-vl:8b).",
+        "description": "Local vision-language text recognition running via Ollama (qwen3-vl:8b, paddleocr-vl).",
         "available": True,
         "models": OLLAMA_VISION_MODELS,
-        "defaultModel": "qwen3-vl:8b",
+        "defaultModel": "paddleocr-vl:1.6",
     },
 ]
 
@@ -61,6 +72,8 @@ def execute_ocr(engine_id: str, image_path: str, options: dict = None) -> dict:
         return run_tesseract_ocr(image_path, options)
     elif engine_id == "florence_2":
         return run_florence_ocr(image_path, options)
+    elif engine_id == "paddleocr_vl":
+        return run_paddleocr_ollama(image_path, options)
     elif engine_id == "openai":
         return run_openai_ocr(image_path, options)
     elif engine_id == "ollama":
