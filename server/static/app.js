@@ -72,6 +72,14 @@ const elements = {
   scoreLatency: document.getElementById('scoreLatency'),
   scoreWords: document.getElementById('scoreWords'),
   scoreChars: document.getElementById('scoreChars'),
+  scoreTokensContainer: document.getElementById('scoreTokensContainer'),
+  scorePromptTokens: document.getElementById('scorePromptTokens'),
+  scoreCompletionTokens: document.getElementById('scoreCompletionTokens'),
+  scoreTotalTokens: document.getElementById('scoreTotalTokens'),
+  textTokensBanner: document.getElementById('textTokensBanner'),
+  bannerPromptTokens: document.getElementById('bannerPromptTokens'),
+  bannerCompletionTokens: document.getElementById('bannerCompletionTokens'),
+  bannerTotalTokens: document.getElementById('bannerTotalTokens'),
   copyBtn: document.getElementById('copyBtn'),
   copyIcon: document.getElementById('copyIcon'),
   copiedIcon: document.getElementById('copiedIcon'),
@@ -563,6 +571,37 @@ function displayOCRResults(result) {
   elements.scoreLatency.textContent = `${result.latencyMs} ms`;
   elements.scoreWords.textContent = `${result.wordCount} words`;
   elements.scoreChars.textContent = result.charCount;
+
+  // Tokens (for OpenAI & other models reporting usage)
+  const tokensContainer = elements.scoreTokensContainer || document.getElementById('scoreTokensContainer');
+  const promptEl = elements.scorePromptTokens || document.getElementById('scorePromptTokens');
+  const compEl = elements.scoreCompletionTokens || document.getElementById('scoreCompletionTokens');
+  const totalEl = elements.scoreTotalTokens || document.getElementById('scoreTotalTokens');
+
+  const textBanner = elements.textTokensBanner || document.getElementById('textTokensBanner');
+  const bannerPrompt = elements.bannerPromptTokens || document.getElementById('bannerPromptTokens');
+  const bannerComp = elements.bannerCompletionTokens || document.getElementById('bannerCompletionTokens');
+  const bannerTotal = elements.bannerTotalTokens || document.getElementById('bannerTotalTokens');
+
+  if (result.usage && (result.usage.promptTokens != null || result.usage.completionTokens != null)) {
+    const promptCount = (result.usage.promptTokens || 0).toLocaleString();
+    const compCount = (result.usage.completionTokens || 0).toLocaleString();
+    const totalCount = (result.usage.totalTokens || 0).toLocaleString();
+
+    if (promptEl) promptEl.textContent = promptCount;
+    if (compEl) compEl.textContent = compCount;
+    if (totalEl) totalEl.textContent = totalCount;
+    if (tokensContainer) tokensContainer.classList.remove('hidden');
+
+    if (bannerPrompt) bannerPrompt.textContent = promptCount;
+    if (bannerComp) bannerComp.textContent = compCount;
+    if (bannerTotal) bannerTotal.textContent = totalCount;
+    if (textBanner) textBanner.classList.remove('hidden');
+  } else {
+    if (tokensContainer) tokensContainer.classList.add('hidden');
+    if (textBanner) textBanner.classList.add('hidden');
+  }
+
   elements.scorecardBar.classList.remove('hidden');
 
   // Full Text tab
@@ -598,6 +637,10 @@ function displayOCRResults(result) {
 function clearOCRResults() {
   state.ocrResult = null;
   elements.scorecardBar.classList.add('hidden');
+  const tokensContainer = elements.scoreTokensContainer || document.getElementById('scoreTokensContainer');
+  const textBanner = elements.textTokensBanner || document.getElementById('textTokensBanner');
+  if (tokensContainer) tokensContainer.classList.add('hidden');
+  if (textBanner) textBanner.classList.add('hidden');
   elements.inspectorTabs.classList.add('hidden');
   elements.fullTextContainer.classList.add('hidden');
   elements.linesContainer.classList.add('hidden');

@@ -42,9 +42,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 # Serve static assets
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=FileResponse)
@@ -136,7 +148,7 @@ async def run_document_ocr(body: OCRRequestBody):
         words = len(text.strip().split()) if text.strip() else 0
         chars = len(text)
 
-        return {
+        resp = {
             "success": True,
             "documentId": body.documentId,
             "pageNumber": int(body.pageNumber),
@@ -148,6 +160,9 @@ async def run_document_ocr(body: OCRRequestBody):
             "wordCount": words,
             "charCount": chars,
         }
+        if "usage" in ocr_result:
+            resp["usage"] = ocr_result["usage"]
+        return resp
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -176,7 +191,7 @@ async def run_page_image_ocr(
         words = len(text.strip().split()) if text.strip() else 0
         chars = len(text)
 
-        return {
+        resp = {
             "success": True,
             "pageNumber": int(pageNumber),
             "engine": ocr_result.get("engine"),
@@ -187,6 +202,9 @@ async def run_page_image_ocr(
             "wordCount": words,
             "charCount": chars,
         }
+        if "usage" in ocr_result:
+            resp["usage"] = ocr_result["usage"]
+        return resp
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

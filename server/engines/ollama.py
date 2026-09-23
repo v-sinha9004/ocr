@@ -136,7 +136,7 @@ def run_ollama_ocr(image_path: str, options: Optional[Dict[str, Any]] = None) ->
 
     display_name = MODEL_DISPLAY_NAMES.get(model, model)
 
-    return {
+    result = {
         "text": raw_text,
         "lines": lines,
         "latencyMs": latency_ms,
@@ -144,3 +144,25 @@ def run_ollama_ocr(image_path: str, options: Optional[Dict[str, Any]] = None) ->
         "engineName": f"Ollama ({display_name})",
         "model": model,
     }
+
+    prompt_tokens = None
+    completion_tokens = None
+    total_tokens = None
+    if hasattr(response, "usage") and response.usage:
+        prompt_tokens = getattr(response.usage, "prompt_tokens", None)
+        completion_tokens = getattr(response.usage, "completion_tokens", None)
+        total_tokens = getattr(response.usage, "total_tokens", None)
+        if isinstance(response.usage, dict):
+            prompt_tokens = response.usage.get("prompt_tokens", prompt_tokens)
+            completion_tokens = response.usage.get("completion_tokens", completion_tokens)
+            total_tokens = response.usage.get("total_tokens", total_tokens)
+
+    if prompt_tokens is not None or completion_tokens is not None:
+        result["usage"] = {
+            "promptTokens": prompt_tokens or 0,
+            "completionTokens": completion_tokens or 0,
+            "totalTokens": total_tokens if total_tokens is not None else ((prompt_tokens or 0) + (completion_tokens or 0)),
+        }
+
+    return result
+

@@ -144,6 +144,11 @@ def test_openai_ocr_with_models():
     mock_choice = MagicMock()
     mock_choice.message.content = "INVOICE #1024\nTOTAL DUE: $1,250.00"
     mock_response.choices = [mock_choice]
+    mock_usage = MagicMock()
+    mock_usage.prompt_tokens = 1120
+    mock_usage.completion_tokens = 38
+    mock_usage.total_tokens = 1158
+    mock_response.usage = mock_usage
 
     sample_res = client.post("/api/sample")
     doc_id = sample_res.json()["document"]["id"]
@@ -173,6 +178,10 @@ def test_openai_ocr_with_models():
             assert "GPT-5.4-mini" in data_gpt5_4["engineName"]
             assert "INVOICE #1024" in data_gpt5_4["text"]
             assert len(data_gpt5_4["lines"]) == 2
+            assert "usage" in data_gpt5_4
+            assert data_gpt5_4["usage"]["promptTokens"] == 1120
+            assert data_gpt5_4["usage"]["completionTokens"] == 38
+            assert data_gpt5_4["usage"]["totalTokens"] == 1158
 
             # Check that create was called with model="gpt-5.4-mini"
             call_kwargs = mock_client_instance.chat.completions.create.call_args.kwargs
