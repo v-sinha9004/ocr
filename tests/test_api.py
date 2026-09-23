@@ -36,6 +36,7 @@ def test_engines_endpoint():
     assert "florence_2" in engine_ids
     assert "paddleocr_vl" in engine_ids
     assert "openai" in engine_ids
+    assert "openai_vision_upsc" in engine_ids
     assert "ollama" in engine_ids
 
     openai_engine = next(e for e in data["engines"] if e["id"] == "openai")

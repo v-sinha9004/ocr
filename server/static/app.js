@@ -19,6 +19,9 @@ const state = {
   ocrResult: null,
   activeTab: 'text',
   currentRenderTask: null,
+  scopeMode: 'current',
+  scopeFrom: 1,
+  scopeTo: 1,
 };
 
 // DOM Elements
@@ -51,13 +54,21 @@ const elements = {
   dropSelectBtn: document.getElementById('dropSelectBtn'),
   loadSampleBtn: document.getElementById('loadSampleBtn'),
 
-  // OCR Panel
+  // OCR Panel & Scope
   engineSelect: document.getElementById('engineSelect'),
   engineDescText: document.getElementById('engineDescText'),
   openaiModelContainer: document.getElementById('openaiModelContainer'),
   openaiModelSelect: document.getElementById('openaiModelSelect'),
   ollamaModelContainer: document.getElementById('ollamaModelContainer'),
   ollamaModelSelect: document.getElementById('ollamaModelSelect'),
+  scopeCurrentBtn: document.getElementById('scopeCurrentBtn'),
+  scopeRangeBtn: document.getElementById('scopeRangeBtn'),
+  scopeRangeInputs: document.getElementById('scopeRangeInputs'),
+  scopeFromPage: document.getElementById('scopeFromPage'),
+  scopeToPage: document.getElementById('scopeToPage'),
+  scopeCurrentPageNum: document.getElementById('scopeCurrentPageNum'),
+  scopeMaxPageNum: document.getElementById('scopeMaxPageNum'),
+  pageScopeBadge: document.getElementById('pageScopeBadge'),
   runOcrBtn: document.getElementById('runOcrBtn'),
   runIcon: document.getElementById('runIcon'),
   runSpinner: document.getElementById('runSpinner'),
@@ -85,6 +96,7 @@ const elements = {
   copiedIcon: document.getElementById('copiedIcon'),
   downloadBtn: document.getElementById('downloadBtn'),
   inspectorTabs: document.getElementById('inspectorTabs'),
+  tabJson: document.getElementById('tabJson'),
   tabText: document.getElementById('tabText'),
   tabLines: document.getElementById('tabLines'),
   tabLinesCount: document.getElementById('tabLinesCount'),
@@ -94,6 +106,8 @@ const elements = {
   readyNotice: document.getElementById('readyNotice'),
   runningNotice: document.getElementById('runningNotice'),
   runningNoticeTitle: document.getElementById('runningNoticeTitle'),
+  jsonContainer: document.getElementById('jsonContainer'),
+  jsonContent: document.getElementById('jsonContent'),
   fullTextContainer: document.getElementById('fullTextContainer'),
   rawTextContent: document.getElementById('rawTextContent'),
   linesContainer: document.getElementById('linesContainer'),
@@ -157,7 +171,7 @@ function updateEngineDescription() {
 
 function updateEngineControls() {
   if (elements.openaiModelContainer) {
-    if (state.selectedEngine === 'openai') {
+    if (state.selectedEngine === 'openai' || state.selectedEngine === 'openai_vision_upsc') {
       elements.openaiModelContainer.classList.remove('hidden');
     } else {
       elements.openaiModelContainer.classList.add('hidden');
@@ -263,13 +277,76 @@ function setupEventListeners() {
   // Run OCR Button
   elements.runOcrBtn.addEventListener('click', runOCR);
 
+  // Scope Mode Handlers
+  if (elements.scopeCurrentBtn) {
+    elements.scopeCurrentBtn.addEventListener('click', () => setScopeMode('current'));
+  }
+  if (elements.scopeRangeBtn) {
+    elements.scopeRangeBtn.addEventListener('click', () => setScopeMode('range'));
+  }
+  if (elements.scopeFromPage) {
+    elements.scopeFromPage.addEventListener('change', (e) => {
+      let val = parseInt(e.target.value, 10) || 1;
+      val = Math.max(1, Math.min(val, state.totalPages));
+      state.scopeFrom = val;
+      if (state.scopeTo < state.scopeFrom) {
+        state.scopeTo = state.scopeFrom;
+        if (elements.scopeToPage) elements.scopeToPage.value = state.scopeTo;
+      }
+      elements.scopeFromPage.value = state.scopeFrom;
+      updateOCRButtonState();
+    });
+  }
+  if (elements.scopeToPage) {
+    elements.scopeToPage.addEventListener('change', (e) => {
+      let val = parseInt(e.target.value, 10) || 1;
+      val = Math.max(1, Math.min(val, state.totalPages));
+      state.scopeTo = val;
+      if (state.scopeFrom > state.scopeTo) {
+        state.scopeFrom = state.scopeTo;
+        if (elements.scopeFromPage) elements.scopeFromPage.value = state.scopeFrom;
+      }
+      elements.scopeToPage.value = state.scopeTo;
+      updateOCRButtonState();
+    });
+  }
+
   // Tabs
+  if (elements.tabJson) {
+    elements.tabJson.addEventListener('click', () => switchTab('json'));
+  }
   elements.tabText.addEventListener('click', () => switchTab('text'));
   elements.tabLines.addEventListener('click', () => switchTab('lines'));
 
   // Copy & Download
   elements.copyBtn.addEventListener('click', copyResultsToClipboard);
   elements.downloadBtn.addEventListener('click', downloadResultsAsText);
+}
+
+function setScopeMode(mode) {
+  state.scopeMode = mode;
+  if (!elements.scopeCurrentBtn || !elements.scopeRangeBtn) return;
+
+  if (mode === 'current') {
+    elements.scopeCurrentBtn.classList.remove('border-slate-700', 'bg-slate-800/60', 'text-slate-400');
+    elements.scopeCurrentBtn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-200');
+
+    elements.scopeRangeBtn.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-200');
+    elements.scopeRangeBtn.classList.add('border-slate-700', 'bg-slate-800/60', 'text-slate-400');
+
+    if (elements.scopeRangeInputs) elements.scopeRangeInputs.classList.add('hidden');
+    if (elements.pageScopeBadge) elements.pageScopeBadge.textContent = 'Single Page';
+  } else {
+    elements.scopeRangeBtn.classList.remove('border-slate-700', 'bg-slate-800/60', 'text-slate-400');
+    elements.scopeRangeBtn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-200');
+
+    elements.scopeCurrentBtn.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-indigo-200');
+    elements.scopeCurrentBtn.classList.add('border-slate-700', 'bg-slate-800/60', 'text-slate-400');
+
+    if (elements.scopeRangeInputs) elements.scopeRangeInputs.classList.remove('hidden');
+    if (elements.pageScopeBadge) elements.pageScopeBadge.textContent = 'Multi-Page';
+  }
+  updateOCRButtonState();
 }
 
 // Load PDF from File
@@ -309,6 +386,10 @@ async function loadPDFDocument(arrayBuffer, filename) {
   state.pdfDoc = await loadingTask.promise;
   state.totalPages = state.pdfDoc.numPages;
   state.currentPage = 1;
+  state.scopeFrom = 1;
+  state.scopeTo = Math.min(2, state.totalPages);
+  if (elements.scopeFromPage) elements.scopeFromPage.value = state.scopeFrom;
+  if (elements.scopeToPage) elements.scopeToPage.value = state.scopeTo;
 
   // Update UI Elements
   elements.docTitle.textContent = filename;
@@ -347,6 +428,19 @@ function updatePageControls() {
   elements.currentPageNum.textContent = state.currentPage;
   elements.prevPageBtn.disabled = state.currentPage <= 1;
   elements.nextPageBtn.disabled = state.currentPage >= state.totalPages;
+
+  if (elements.scopeCurrentPageNum) {
+    elements.scopeCurrentPageNum.textContent = state.currentPage;
+  }
+  if (elements.scopeMaxPageNum) {
+    elements.scopeMaxPageNum.textContent = state.totalPages;
+  }
+  if (elements.scopeFromPage) {
+    elements.scopeFromPage.max = state.totalPages;
+  }
+  if (elements.scopeToPage) {
+    elements.scopeToPage.max = state.totalPages;
+  }
 }
 
 // Set Zoom Level
@@ -473,30 +567,39 @@ function updateOCRButtonState() {
 
   const currentEng = state.engines.find((e) => e.id === state.selectedEngine);
   let engName = currentEng ? currentEng.name : 'OCR';
+  const modelLabels = {
+    'gpt-5.4-mini': 'GPT-5.4-mini',
+    'gpt-5-mini': 'GPT-5-mini',
+    'gpt-4o-mini': 'GPT-4o-mini',
+    'gpt-4o': 'GPT-4o',
+  };
+  const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
+
   if (state.selectedEngine === 'openai') {
-    const modelLabels = {
-      'gpt-5.4-mini': 'GPT-5.4-mini',
-      'gpt-5-mini': 'GPT-5-mini',
-      'gpt-4o-mini': 'GPT-4o-mini',
-    };
-    const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
     engName = `OpenAI (${modelLabel})`;
+  } else if (state.selectedEngine === 'openai_vision_upsc') {
+    engName = `OpenAI UPSC (${modelLabel})`;
   } else if (state.selectedEngine === 'ollama') {
     engName = `Ollama (${state.selectedOllamaModel})`;
   } else if (state.selectedEngine === 'paddleocr_vl') {
     engName = `PaddleOCR-VL 1.6`;
   }
 
+  const isMultiPage = state.scopeMode === 'range' && state.scopeTo > state.scopeFrom;
+  const targetLabel = isMultiPage
+    ? `Pages ${state.scopeFrom}–${state.scopeTo}`
+    : `Page ${state.currentPage}`;
+
   if (state.isRunningOCR) {
     elements.runOcrBtn.disabled = true;
     elements.runIcon.classList.add('hidden');
     elements.runSpinner.classList.remove('hidden');
-    elements.runBtnText.textContent = `Processing Page ${state.currentPage}...`;
+    elements.runBtnText.textContent = `Processing ${targetLabel}...`;
   } else {
     elements.runOcrBtn.disabled = false;
     elements.runIcon.classList.remove('hidden');
     elements.runSpinner.classList.add('hidden');
-    elements.runBtnText.textContent = `Run ${engName} on Page ${state.currentPage}`;
+    elements.runBtnText.textContent = `Run ${engName} on ${targetLabel}`;
   }
 }
 
@@ -509,44 +612,84 @@ async function runOCR() {
     showError(null);
     updateOCRButtonState();
     showRunningNotice();
+    const isMultiPage = state.scopeMode === 'range' && state.scopeTo > state.scopeFrom;
+    let response;
+    if (!isMultiPage) {
+      const page = await state.pdfDoc.getPage(state.currentPage);
+      const viewport = page.getViewport({ scale: 150 / 72 }); // 150 DPI export
+      const offscreenCanvas = document.createElement('canvas');
+      offscreenCanvas.width = Math.floor(viewport.width);
+      offscreenCanvas.height = Math.floor(viewport.height);
 
-    // 1. Render high-resolution 150 DPI canvas for the current page
-    const page = await state.pdfDoc.getPage(state.currentPage);
-    const viewport = page.getViewport({ scale: 150 / 72 }); // 150 DPI export
-    const offscreenCanvas = document.createElement('canvas');
-    offscreenCanvas.width = Math.floor(viewport.width);
-    offscreenCanvas.height = Math.floor(viewport.height);
+      const ctx = offscreenCanvas.getContext('2d');
+      await page.render({
+        canvasContext: ctx,
+        viewport,
+      }).promise;
 
-    const ctx = offscreenCanvas.getContext('2d');
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-    }).promise;
+      const blob = await new Promise((resolve) => offscreenCanvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to capture page canvas for OCR');
 
-    // 2. Convert canvas to Blob
-    const blob = await new Promise((resolve) => offscreenCanvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('Failed to capture page canvas for OCR');
+      const formData = new FormData();
+      formData.append('image', blob, `page_${state.currentPage}.png`);
+      formData.append('engineId', state.selectedEngine);
+      formData.append('pageNumber', state.currentPage);
 
-    // 3. Dispatch to FastAPI /api/ocr-page-image
-    const formData = new FormData();
-    formData.append('image', blob, `page_${state.currentPage}.png`);
-    formData.append('engineId', state.selectedEngine);
-    formData.append('pageNumber', state.currentPage);
+      const options = {};
+      if (state.selectedEngine === 'openai' || state.selectedEngine === 'openai_vision_upsc') {
+        options.model = state.selectedOpenaiModel;
+      } else if (state.selectedEngine === 'ollama') {
+        options.model = state.selectedOllamaModel;
+      } else if (state.selectedEngine === 'paddleocr_vl') {
+        options.model = 'paddleocr-vl:1.6';
+      }
+      formData.append('options', JSON.stringify(options));
 
-    const options = {};
-    if (state.selectedEngine === 'openai') {
-      options.model = state.selectedOpenaiModel;
-    } else if (state.selectedEngine === 'ollama') {
-      options.model = state.selectedOllamaModel;
-    } else if (state.selectedEngine === 'paddleocr_vl') {
-      options.model = 'paddleocr-vl:1.6';
+      response = await fetch('/api/ocr-page-image', {
+        method: 'POST',
+        body: formData,
+      });
+    } else {
+      const formData = new FormData();
+      formData.append('engineId', state.selectedEngine);
+
+      const pageNums = [];
+      for (let p = state.scopeFrom; p <= state.scopeTo; p++) {
+        pageNums.push(p);
+        const page = await state.pdfDoc.getPage(p);
+        const viewport = page.getViewport({ scale: 150 / 72 }); // 150 DPI export
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = Math.floor(viewport.width);
+        offscreenCanvas.height = Math.floor(viewport.height);
+
+        const ctx = offscreenCanvas.getContext('2d');
+        await page.render({
+          canvasContext: ctx,
+          viewport,
+        }).promise;
+
+        const blob = await new Promise((resolve) => offscreenCanvas.toBlob(resolve, 'image/png'));
+        if (!blob) throw new Error(`Failed to capture canvas for page ${p}`);
+        formData.append('images', blob, `page_${p}.png`);
+      }
+
+      formData.append('pageNumbers', JSON.stringify(pageNums));
+
+      const options = {};
+      if (state.selectedEngine === 'openai' || state.selectedEngine === 'openai_vision_upsc') {
+        options.model = state.selectedOpenaiModel;
+      } else if (state.selectedEngine === 'ollama') {
+        options.model = state.selectedOllamaModel;
+      } else if (state.selectedEngine === 'paddleocr_vl') {
+        options.model = 'paddleocr-vl:1.6';
+      }
+      formData.append('options', JSON.stringify(options));
+
+      response = await fetch('/api/ocr-multi-pages', {
+        method: 'POST',
+        body: formData,
+      });
     }
-    formData.append('options', JSON.stringify(options));
-
-    const response = await fetch('/api/ocr-page-image', {
-      method: 'POST',
-      body: formData,
-    });
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
@@ -608,6 +751,20 @@ function displayOCRResults(result) {
 
   elements.scorecardBar.classList.remove('hidden');
 
+  // UPSC Pydantic JSON rendering
+  if (result.upscData) {
+    if (elements.tabJson) elements.tabJson.classList.remove('hidden');
+    if (elements.jsonContent) {
+      elements.jsonContent.textContent = JSON.stringify(result.upscData, null, 2);
+    }
+    state.activeTab = 'json';
+  } else {
+    if (elements.tabJson) elements.tabJson.classList.add('hidden');
+    if (state.activeTab === 'json') {
+      state.activeTab = 'text';
+    }
+  }
+
   // Full Text tab
   elements.rawTextContent.textContent = result.text || '(No text detected on this page)';
 
@@ -646,6 +803,8 @@ function clearOCRResults() {
   if (tokensContainer) tokensContainer.classList.add('hidden');
   if (textBanner) textBanner.classList.add('hidden');
   elements.inspectorTabs.classList.add('hidden');
+  if (elements.tabJson) elements.tabJson.classList.add('hidden');
+  if (elements.jsonContainer) elements.jsonContainer.classList.add('hidden');
   elements.fullTextContainer.classList.add('hidden');
   elements.linesContainer.classList.add('hidden');
   if (state.pdfDoc) {
@@ -655,14 +814,25 @@ function clearOCRResults() {
 
 function switchTab(tabName) {
   state.activeTab = tabName;
-  if (tabName === 'text') {
+  if (tabName === 'json') {
+    if (elements.tabJson) elements.tabJson.classList.add('active');
+    elements.tabText.classList.remove('active');
+    elements.tabLines.classList.remove('active');
+    if (elements.jsonContainer) elements.jsonContainer.classList.remove('hidden');
+    elements.fullTextContainer.classList.add('hidden');
+    elements.linesContainer.classList.add('hidden');
+  } else if (tabName === 'text') {
+    if (elements.tabJson) elements.tabJson.classList.remove('active');
     elements.tabText.classList.add('active');
     elements.tabLines.classList.remove('active');
+    if (elements.jsonContainer) elements.jsonContainer.classList.add('hidden');
     elements.fullTextContainer.classList.remove('hidden');
     elements.linesContainer.classList.add('hidden');
   } else {
+    if (elements.tabJson) elements.tabJson.classList.remove('active');
     elements.tabText.classList.remove('active');
     elements.tabLines.classList.add('active');
+    if (elements.jsonContainer) elements.jsonContainer.classList.add('hidden');
     elements.fullTextContainer.classList.add('hidden');
     elements.linesContainer.classList.remove('hidden');
   }
@@ -677,18 +847,21 @@ function showReadyNotice() {
 function showRunningNotice() {
   const currentEng = state.engines.find((e) => e.id === state.selectedEngine);
   let title = `Executing ${currentEng ? currentEng.name : 'OCR'}...`;
-  if (state.selectedEngine === 'openai') {
+  if (state.selectedEngine === 'openai' || state.selectedEngine === 'openai_vision_upsc') {
     const modelLabels = {
       'gpt-5.4-mini': 'GPT-5.4-mini',
       'gpt-5-mini': 'GPT-5-mini',
       'gpt-4o-mini': 'GPT-4o-mini',
+      'gpt-4o': 'GPT-4o',
     };
     const modelLabel = modelLabels[state.selectedOpenaiModel] || state.selectedOpenaiModel;
-    title = `Executing OpenAI (${modelLabel})...`;
+    const prefix = state.selectedEngine === 'openai_vision_upsc' ? 'OpenAI UPSC' : 'OpenAI';
+    title = `Executing ${prefix} (${modelLabel})...`;
   }
   elements.runningNoticeTitle.textContent = title;
   elements.initialStateNotice.classList.add('hidden');
   elements.readyNotice.classList.add('hidden');
+  if (elements.jsonContainer) elements.jsonContainer.classList.add('hidden');
   elements.fullTextContainer.classList.add('hidden');
   elements.linesContainer.classList.add('hidden');
   elements.runningNotice.classList.remove('hidden');
@@ -705,8 +878,13 @@ function showError(msg) {
 
 // Copy to Clipboard
 function copyResultsToClipboard() {
-  if (!state.ocrResult?.text) return;
-  navigator.clipboard.writeText(state.ocrResult.text).then(() => {
+  if (!state.ocrResult) return;
+  const contentToCopy = state.activeTab === 'json' && state.ocrResult.upscData
+    ? JSON.stringify(state.ocrResult.upscData, null, 2)
+    : (state.ocrResult.text || '');
+  if (!contentToCopy) return;
+
+  navigator.clipboard.writeText(contentToCopy).then(() => {
     elements.copyIcon.classList.add('hidden');
     elements.copiedIcon.classList.remove('hidden');
     setTimeout(() => {
@@ -718,12 +896,20 @@ function copyResultsToClipboard() {
 
 // Download Results
 function downloadResultsAsText() {
-  if (!state.ocrResult?.text) return;
-  const blob = new Blob([state.ocrResult.text], { type: 'text/plain;charset=utf-8' });
+  if (!state.ocrResult) return;
+  const isJson = state.activeTab === 'json' && state.ocrResult.upscData;
+  const content = isJson
+    ? JSON.stringify(state.ocrResult.upscData, null, 2)
+    : (state.ocrResult.text || '');
+  if (!content) return;
+
+  const mimeType = isJson ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8';
+  const ext = isJson ? 'json' : 'txt';
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ocr_page_${state.currentPage}_${state.selectedEngine}.txt`;
+  a.download = `ocr_page_${state.currentPage}_${state.selectedEngine}.${ext}`;
   a.click();
   URL.revokeObjectURL(url);
 }

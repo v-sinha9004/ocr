@@ -145,7 +145,9 @@ async def run_document_ocr(body: OCRRequestBody):
     try:
         ocr_result = await asyncio.to_thread(execute_ocr, body.engineId, image_path, body.options or {})
         text = ocr_result.get("text", "")
-        words = len(text.strip().split()) if text.strip() else 0
+        word_count = ocr_result.get("wordCount")
+        if word_count is None:
+            word_count = len(text.strip().split()) if text.strip() else 0
         chars = len(text)
 
         resp = {
@@ -157,9 +159,11 @@ async def run_document_ocr(body: OCRRequestBody):
             "text": text,
             "lines": ocr_result.get("lines", []),
             "latencyMs": ocr_result.get("latencyMs", 0),
-            "wordCount": words,
+            "wordCount": word_count,
             "charCount": chars,
         }
+        if "upscData" in ocr_result:
+            resp["upscData"] = ocr_result["upscData"]
         if "usage" in ocr_result:
             resp["usage"] = ocr_result["usage"]
         return resp
@@ -188,7 +192,9 @@ async def run_page_image_ocr(
     try:
         ocr_result = await asyncio.to_thread(execute_ocr, engineId, temp_image_path, parsed_options)
         text = ocr_result.get("text", "")
-        words = len(text.strip().split()) if text.strip() else 0
+        word_count = ocr_result.get("wordCount")
+        if word_count is None:
+            word_count = len(text.strip().split()) if text.strip() else 0
         chars = len(text)
 
         resp = {
@@ -199,9 +205,11 @@ async def run_page_image_ocr(
             "text": text,
             "lines": ocr_result.get("lines", []),
             "latencyMs": ocr_result.get("latencyMs", 0),
-            "wordCount": words,
+            "wordCount": word_count,
             "charCount": chars,
         }
+        if "upscData" in ocr_result:
+            resp["upscData"] = ocr_result["upscData"]
         if "usage" in ocr_result:
             resp["usage"] = ocr_result["usage"]
         return resp
@@ -213,6 +221,71 @@ async def run_page_image_ocr(
                 os.unlink(temp_image_path)
             except OSError:
                 pass
+
+
+@app.post("/api/ocr-multi-pages")
+async def run_multi_pages_ocr(
+    images: list[UploadFile] = File(...),
+    engineId: str = Form("openai_vision_upsc"),
+    pageNumbers: Optional[str] = Form(None),
+    options: Optional[str] = Form(None),
+):
+    temp_paths: list[str] = []
+    try:
+        for img in images:
+            suffix = Path(img.filename or "page.png").suffix or ".png"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                shutil.copyfileobj(img.file, tmp)
+                temp_paths.append(tmp.name)
+
+        parsed_options = {}
+        if options:
+            try:
+                parsed_options = json.loads(options)
+            except Exception:
+                pass
+
+        ocr_result = await asyncio.to_thread(execute_ocr, engineId, temp_paths, parsed_options)
+        text = ocr_result.get("text", "")
+        word_count = ocr_result.get("wordCount")
+        if word_count is None:
+            word_count = len(text.strip().split()) if text.strip() else 0
+        chars = len(text)
+
+        parsed_pages = None
+        if pageNumbers:
+            try:
+                parsed_pages = json.loads(pageNumbers)
+            except Exception:
+                pass
+
+        resp = {
+            "success": True,
+            "engine": ocr_result.get("engine"),
+            "engineName": ocr_result.get("engineName"),
+            "text": text,
+            "lines": ocr_result.get("lines", []),
+            "latencyMs": ocr_result.get("latencyMs", 0),
+            "wordCount": word_count,
+            "charCount": chars,
+            "pageCount": len(temp_paths),
+        }
+        if parsed_pages:
+            resp["pageNumbers"] = parsed_pages
+        if "upscData" in ocr_result:
+            resp["upscData"] = ocr_result["upscData"]
+        if "usage" in ocr_result:
+            resp["usage"] = ocr_result["usage"]
+        return resp
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for p in temp_paths:
+            if os.path.exists(p):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
 
 
 @app.get("/api/health")
