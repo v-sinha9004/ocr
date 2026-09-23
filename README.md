@@ -1,4 +1,4 @@
-# OCR Evaluation & PDF Viewing Platform
+# Trying different OCR engines and models
 
 A high-performance web platform for previewing PDF documents, executing multi-engine OCR (Optical Character Recognition), and benchmarking recognition speed, accuracy, and bounding boxes across different OCR engines.
 
