@@ -246,3 +246,92 @@ def test_execute_ocr_single_and_multi_page_list():
         assert res["latencyMs"] == 25.0
         assert len(res["lines"]) == 2
         assert mock_apple.call_count == 2
+
+
+def test_api_upsc_ocr_with_images():
+    fake_png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4"
+    mock_res = {
+        "text": "Answer text",
+        "lines": [],
+        "latencyMs": 400.0,
+        "engine": "openai_vision_upsc",
+        "engineName": "OpenAI UPSC Vision",
+        "wordCount": 150,
+        "charCount": 900,
+        "upscData": {
+            "question_text": "Examine the role of Speaker.",
+            "question_marks": "15 Marks",
+            "full_markdown_text": "Answer text",
+            "detected_intro": "Speaker is the presiding officer.",
+            "detected_conclusion": "Impartiality is key.",
+            "estimated_word_count": 150,
+            "legibility_status": "CLEAR",
+        },
+        "usage": {"totalTokens": 1100},
+    }
+
+    with patch("server.main.execute_ocr", return_value=mock_res) as mock_exec:
+        resp = client.post(
+            "/api/upsc-ocr",
+            files=[
+                ("images", ("p1.png", fake_png, "image/png")),
+                ("images", ("p2.png", fake_png, "image/png")),
+            ],
+            data={"model": "gpt-5.4-mini"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["engine"] == "openai_vision_upsc"
+        assert data["pageCount"] == 2
+        assert data["data"]["question_text"] == "Examine the role of Speaker."
+        assert data["data"]["legibility_status"] == "CLEAR"
+        assert data["usage"]["totalTokens"] == 1100
+        assert mock_exec.called
+
+
+def test_api_upsc_ocr_missing_input():
+    resp = client.post("/api/upsc-ocr", data={"model": "gpt-5.4-mini"})
+    assert resp.status_code == 400
+    assert "Must provide either" in resp.json()["detail"]
+
+
+def test_api_upsc_ocr_with_pdf():
+    # Use existing sample PDF
+    from server.main import SAMPLE_PDF_PATH
+    assert SAMPLE_PDF_PATH.exists()
+
+    mock_res = {
+        "text": "Answer text from PDF",
+        "lines": [],
+        "latencyMs": 550.0,
+        "engine": "openai_vision_upsc",
+        "engineName": "OpenAI UPSC Vision",
+        "wordCount": 180,
+        "charCount": 1100,
+        "upscData": {
+            "question_text": "Examine the role of Speaker.",
+            "question_marks": "15 Marks",
+            "full_markdown_text": "Answer text from PDF",
+            "detected_intro": "Speaker is the presiding officer.",
+            "detected_conclusion": "Impartiality is key.",
+            "estimated_word_count": 180,
+            "legibility_status": "CLEAR",
+        },
+        "usage": {"totalTokens": 1400},
+    }
+
+    with patch("server.main.execute_ocr", return_value=mock_res) as mock_exec:
+        with open(SAMPLE_PDF_PATH, "rb") as f:
+            resp = client.post(
+                "/api/upsc-ocr",
+                files={"pdf": ("sample.pdf", f, "application/pdf")},
+                data={"model": "gpt-5.4-mini", "fromPage": 1, "toPage": 1},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["engine"] == "openai_vision_upsc"
+        assert data["pageCount"] == 1
+        assert data["data"]["question_text"] == "Examine the role of Speaker."
+        assert mock_exec.called

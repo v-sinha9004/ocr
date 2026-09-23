@@ -2,7 +2,9 @@ import asyncio
 import datetime
 import json
 import os
+import re
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -15,8 +17,10 @@ from pydantic import BaseModel
 
 from .engines.registry import ENGINES, execute_ocr
 from .services.pdf_service import (
+    PDFTOPPM_PATH,
     get_document_meta,
     get_page_image_path,
+    get_pdf_info,
     process_pdf,
 )
 
@@ -282,6 +286,120 @@ async def run_multi_pages_ocr(
     finally:
         for p in temp_paths:
             if os.path.exists(p):
+                try:
+                    os.unlink(p)
+                except OSError:
+                    pass
+
+
+@app.post("/api/upsc-ocr")
+async def run_upsc_ocr_direct(
+    images: Optional[list[UploadFile]] = File(None),
+    pdf: Optional[UploadFile] = File(None),
+    model: str = Form("gpt-5.4-mini"),
+    fromPage: Optional[int] = Form(None),
+    toPage: Optional[int] = Form(None),
+):
+    """
+    Dedicated turnkey endpoint for UPSC Answer Copy OCR using OpenAI Vision.
+    Accepts:
+      - 'images': One or more image files (form multipart)
+      OR
+      - 'pdf': A single PDF file (form multipart), with optional 'fromPage' and 'toPage'
+    Model option:
+      - 'model': 'gpt-5.4-mini' (default), 'gpt-5-mini', 'gpt-4o-mini', 'gpt-4o'
+    Returns:
+      Direct structured UPSCAnswerOCRResponse in 'data', along with metadata, wordCount, usage, latencyMs.
+    """
+    if not images and not pdf:
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide either 'images' (one or more image files) or 'pdf' file.",
+        )
+
+    temp_cleanup: list[str] = []
+    try:
+        image_paths: list[str] = []
+        if images:
+            for img in images:
+                suffix = Path(img.filename or "page.png").suffix or ".png"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    shutil.copyfileobj(img.file, tmp)
+                    temp_cleanup.append(tmp.name)
+                    image_paths.append(tmp.name)
+        elif pdf:
+            pdf_suffix = Path(pdf.filename or "doc.pdf").suffix or ".pdf"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=pdf_suffix) as tmp:
+                shutil.copyfileobj(pdf.file, tmp)
+                pdf_tmp_path = tmp.name
+                temp_cleanup.append(pdf_tmp_path)
+
+            try:
+                info = get_pdf_info(pdf_tmp_path)
+                total_pages = info.get("pages", 1)
+            except Exception:
+                total_pages = 1
+
+            first_p = max(1, fromPage) if fromPage else 1
+            last_p = min(total_pages, toPage) if toPage else total_pages
+            if first_p > last_p:
+                first_p = 1
+                last_p = total_pages
+
+            temp_render_dir = Path(tempfile.mkdtemp(prefix="upsc_render_"))
+            temp_cleanup.append(str(temp_render_dir))
+
+            ppm_cmd = [
+                PDFTOPPM_PATH,
+                "-png",
+                "-r",
+                "150",
+                "-f",
+                str(first_p),
+                "-l",
+                str(last_p),
+                pdf_tmp_path,
+                str(temp_render_dir / "page"),
+            ]
+            proc = await asyncio.to_thread(
+                subprocess.run, ppm_cmd, capture_output=True, text=True, check=False
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"pdftoppm failed: {proc.stderr or 'Failed to render PDF pages'}")
+
+            rendered_files = sorted(
+                temp_render_dir.glob("page-*.png"),
+                key=lambda p: [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", p.name)]
+            )
+            if not rendered_files:
+                raise RuntimeError("No rendered page images produced from PDF.")
+
+            image_paths = [str(f) for f in rendered_files]
+
+        ocr_result = await asyncio.to_thread(
+            execute_ocr, "openai_vision_upsc", image_paths, {"model": model}
+        )
+
+        return {
+            "success": True,
+            "engine": "openai_vision_upsc",
+            "model": model,
+            "pageCount": len(image_paths),
+            "data": ocr_result.get("upscData"),
+            "text": ocr_result.get("text", ""),
+            "usage": ocr_result.get("usage"),
+            "latencyMs": ocr_result.get("latencyMs", 0),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for p in temp_cleanup:
+            if os.path.isdir(p):
+                try:
+                    shutil.rmtree(p, ignore_errors=True)
+                except Exception:
+                    pass
+            elif os.path.exists(p):
                 try:
                     os.unlink(p)
                 except OSError:
