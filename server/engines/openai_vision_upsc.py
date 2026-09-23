@@ -52,7 +52,7 @@ Your job is to transcribe the candidate's handwritten pages into clean, structur
 CRITICAL INSTRUCTIONS FOR TRANSCRIPTION:
 
 1. QUESTION AND MARKS EXTRACTION:
-   - Identify and extract the question statement/prompt (printed or handwritten) into `question_text`.
+   - Identify and extract the question statement/prompt (printed or handwritten) into `question_text`, but ignore/dont include the hindi translation of question_text.
    - Identify any allotted marks specified alongside the question (e.g. "10", "15 Marks", "12.5", "10M") into `question_marks`. If not found, set to null.
    - Do NOT include the question text or marks in `full_markdown_text` or `estimated_word_count`; `full_markdown_text` must focus strictly on the candidate's handwritten answer.
 
